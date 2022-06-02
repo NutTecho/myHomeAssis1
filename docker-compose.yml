@@ -1,0 +1,96 @@
+version: "3.7"
+services:
+  mymqtt:
+    container_name: mymqtt
+    image: eclipse-mosquitto
+    restart: unless-stopped
+    volumes:
+      - ./mqtt/conf:/mosquitto/config
+      - ./mqtt/data:/mosquitto/data
+      - ./mqtt/log:/mosquitto/log
+    expose:
+      - 1883
+      - 9001
+    ports:
+      - 1883:1883
+      - 9001:9001
+    networks:
+      mynet:
+        ipv4_address: 172.18.0.2
+
+  mynodered:
+    container_name: mynodered
+    image: nodered/node-red
+    restart: unless-stopped
+    volumes:
+      - ./myNodeRed:/data
+    expose:
+      - 1880
+    ports:
+      - 1880:1880
+    networks:
+      mynet:
+        ipv4_address: 172.18.0.3
+
+  zerotier:
+    container_name: zerotier
+    image: zerotier/zerotier
+    devices:
+      - /dev/net/tun
+    healthcheck:
+      test: ["CMD", "zerotier-cli", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    volumes:
+      - ./zerotier:/var/lib/zerotier-one
+    restart: always
+    networks:
+      mynet:
+        ipv4_address: 172.18.0.5
+
+  homeassistant:
+    container_name: homeassistant
+    image: "homeassistant/home-assistant"
+    volumes:
+      - ./homeassis/config:/config
+      - ./homeassis/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    ports:
+      - 8123:8123
+    privileged: true
+    networks:
+      mynet:
+        ipv4_address: 172.18.0.4
+    
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./portainer:/data
+    ports:
+      - 9000:9000
+    networks:
+      mynet:
+        ipv4_address: 172.18.0.6
+      
+
+networks:
+  mynet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/24
+
+
+
+
+
