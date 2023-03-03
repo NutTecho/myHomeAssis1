@@ -1,22 +1,47 @@
 version: "3.7"
 services:
-  mymqtt:
-    container_name: mymqtt
-    image: eclipse-mosquitto
-    restart: unless-stopped
-    volumes:
-      - ./mqtt/conf:/mosquitto/config
-      - ./mqtt/data:/mosquitto/data
-      - ./mqtt/log:/mosquitto/log
-    expose:
-      - 1883
-      - 9001
+  # mymqtt:
+  #   container_name: mymqtt
+  #   image: eclipse-mosquitto
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./mqtt/conf:/mosquitto/config
+  #     - ./mqtt/data:/mosquitto/data
+  #     - ./mqtt/log:/mosquitto/log
+  #   expose:
+  #     - 1883
+  #     - 9001
+  #   ports:
+  #     - 1883:1883
+  #     - 9001:9001
+  #   networks:
+  #     mynet:
+  #       ipv4_address: 172.18.0.2
+# user admin password admin1234 , default public
+  emqx:
+    image: emqx/emqx
+    container_name: emqx
+    restart: always
+    environment:
+    - "EMQX_NODE_NAME=emqx@node1.emqx.com"
+    - "EMQX_CLUSTER__DISCOVERY_STRATEGY=static"
+    healthcheck:
+      test: ["CMD", "/opt/emqx/bin/emqx_ctl", "status"]
+      interval: 5s
+      timeout: 25s
+      retries: 5
+    networks:
+      tignetwork:
+        ipv4_address: 172.18.0.2
     ports:
       - 1883:1883
-      - 9001:9001
-    networks:
-      mynet:
-        ipv4_address: 172.18.0.2
+      # - 8083:8083
+      # - 8084:8084
+      # - 8883:8883
+      - 18083:18083 
+    volumes:
+      - ./emqx/data:/opt/emqx/data
+      - ./emqx/config:/etc/emqx/etc
 
   mynodered:
     container_name: mynodered
@@ -24,6 +49,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./myNodeRed:/data
+      - ./myNodeRed/home:/home
     expose:
       - 1880
     ports:
@@ -54,7 +80,8 @@ services:
 
   homeassistant:
     container_name: homeassistant
-    image: "homeassistant/home-assistant"
+    # image: "homeassistant/home-assistant"
+    image: "ghcr.io/home-assistant/home-assistant:stable"
     volumes:
       - ./homeassis/config:/config
       - ./homeassis/localtime:/etc/localtime:ro
@@ -81,6 +108,78 @@ services:
     networks:
       mynet:
         ipv4_address: 172.18.0.6
+  
+  # esphome:
+  #   container_name: esphome
+  #   image: esphome/esphome
+  #   volumes:
+  #     - ./esphome/config:/config
+  #     - /etc/localtime:/etc/localtime:ro
+  #   restart: unless-stopped
+  #   ports:
+  #     - 6052:6052
+  #     - 6123:6123
+  #   privileged: true
+  #   devices:
+  #     - /dev/ttyUSB0
+  #   #   - /dev/ttyUSB1:/dev/ttyUSB
+  #   networks:
+  #     mynet:
+  #       ipv4_address: 172.18.0.7
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+      - 67:67/udp 
+      - 82:80/tcp
+    environment:
+      TZ: "Asia/Bangkok"
+      WEBTHEME: "default-dark"
+      WEBPASSWORD: "mypihole"
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    cap_add:
+      - NET_ADMIN 
+      - SYS_ADMIN
+    restart: unless-stopped
+    networks:
+      mynet:
+        ipv4_address: 172.18.0.8
+  
+  ngrok:
+    container_name: ngrok
+    image: wernight/ngrok:latest
+    ports:
+      - 4040:4040
+    environment:
+      NGROK_AUTH: 2HgBDbFl5bkFbK2fW9l4JVvKE4E_81hGaqCyZbHVs29wJsSAA
+      NGROK_PROTOCOL: http
+      NGROK_PORT: mynodered:1880
+      # NGROK_HOSTNAME: mycustomdomain.eu.ngrok.io
+      # NGROK_BINDTLS: true
+      # NGROK_REMOTE_ADDR: 127.0.0.1:80
+    # tunnels:
+    #   portainer:
+    #     addr: portainer:9000
+    #     proto: http
+    #   mynodered:
+    #     addr: mynodered:1880
+    #     proto: http
+      # ssh-access:
+      #   addr: 172.18.0.1:22
+      #   proto: tcp
+    depends_on:
+      - mynodered
+    networks:
+      mynet:
+        ipv4_address: 172.18.0.9
+    
+
+  
       
 
 networks:
